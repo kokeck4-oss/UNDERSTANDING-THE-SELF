@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Understanding the Self Reviewer</title>
+<style>
+:root{--bg:#04070f;--bg2:#0a0f1f;--txt:#eef2ff;--mut:#8f9cc4;--ac:#2dd4bf;--ac2:#60a5fa;--ac3:#f59e0b;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24;--line:rgba(255,255,255,.09);--glass:rgba(255,255,255,.045);--glass2:rgba(255,255,255,.08);--r:22px}
+[data-theme=violet]{--ac:#a78bfa;--ac2:#f472b6;--ac3:#22d3ee}
+[data-theme=rose]{--ac:#fb7185;--ac2:#fbbf24;--ac3:#a78bfa}
+[data-theme=sky]{--ac:#38bdf8;--ac2:#818cf8;--ac3:#34d399}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-padding-top:90px}
+body{margin:0;font-family:'Inter','Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--txt);line-height:1.65;min-height:100vh;overflow-x:hidden}
+::selection{background:var(--ac);color:#02060c}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:linear-gradient(var(--ac),var(--ac2));border-radius:10px}::-webkit-scrollbar-track{background:transparent}
+button{font-family:inherit}
+
+/* ---------- background ---------- */
+#fx{position:fixed;inset:0;z-index:-3;width:100%;height:100%}
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aurora i{position:absolute;width:55vmax;height:55vmax;border-radius:50%;filter:blur(110px);opacity:.32;animation:drift 22s ease-in-out infinite alternate;will-change:transform}
+.aurora i:nth-child(1){background:var(--ac2);top:-25%;left:-15%}
+.aurora i:nth-child(2){background:var(--ac);bottom:-30%;right:-15%;animation-delay:-8s}
+.aurora i:nth-child(3){background:var(--ac3);top:30%;left:35%;width:34vmax;height:34vmax;opacity:.14;animation-delay:-14s}
+.grid{position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;mask-image:radial-gradient(ellipse at 50% 30%,#000 10%,transparent 70%);-webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000 10%,transparent 70%);opacity:.5}
+@keyframes drift{to{transform:translate(9vmax,7vmax) scale(1.18) rotate(20deg)}}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.95) translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes pulse{50%{opacity:.5;transform:scale(1.05)}}
+@keyframes shine{to{background-position:200% center}}
+
+#prog{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--ac),var(--ac2),var(--ac3));z-index:80;box-shadow:0 0 16px var(--ac)}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;padding:12px clamp(14px,3vw,34px);background:rgba(4,7,15,.55);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px;margin-right:auto;font-weight:800;font-size:18px;letter-spacing:.3px}
+.logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f;font-weight:900;font-size:15px;box-shadow:0 0 24px color-mix(in srgb,var(--ac) 60%,transparent);animation:pulse 3.5s ease-in-out infinite}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--mut);letter-spacing:1.5px;text-transform:uppercase;margin-top:-3px}
+.tabs{display:flex;gap:4px;background:var(--glass);border:1px solid var(--line);padding:4px;border-radius:14px}
+.tab{background:none;border:0;color:var(--mut);padding:8px 16px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;transition:.25s}
+.tab:hover{color:var(--txt)}
+.tab.on{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f;box-shadow:0 4px 18px color-mix(in srgb,var(--ac) 40%,transparent)}
+.dots{display:flex;gap:7px;align-items:center}
+.dots b{width:17px;height:17px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.2s}
+.dots b:hover{transform:scale(1.2)}
+.dots b.on{border-color:#fff;box-shadow:0 0 12px currentColor}
+.ibtn{background:var(--glass);border:1px solid var(--line);color:var(--txt);padding:8px 13px;border-radius:12px;cursor:pointer;font-weight:600;font-size:13px;transition:.25s}
+.ibtn:hover{border-color:var(--ac);box-shadow:0 0 18px color-mix(in srgb,var(--ac) 35%,transparent);transform:translateY(-1px)}
+
+/* ---------- buttons ---------- */
+.btn{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f;border:0;padding:12px 22px;border-radius:14px;font-weight:800;cursor:pointer;font-size:15px;box-shadow:0 6px 24px color-mix(in srgb,var(--ac) 35%,transparent);transition:.25s}
+.btn:hover{transform:translateY(-3px);box-shadow:0 12px 34px color-mix(in srgb,var(--ac2) 50%,transparent)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.ghost{background:var(--glass);color:var(--txt);border:1px solid var(--line);box-shadow:none}
+.btn.ghost:hover{border-color:var(--ac);box-shadow:0 0 22px color-mix(in srgb,var(--ac) 30%,transparent)}
+.btn.sm{padding:8px 14px;font-size:13px;border-radius:11px}
+.btn.big{padding:16px 34px;font-size:17px;border-radius:16px}
+
+.wrap{max-width:1240px;margin:0 auto;padding:0 clamp(14px,3vw,34px) 80px}
+.hide{display:none!important}
+
+/* ---------- hero ---------- */
+.hero{padding:60px 0 34px;display:grid;grid-template-columns:1.15fr .85fr;gap:36px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:30px;background:var(--glass);border:1px solid var(--line);font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ac);font-weight:700}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);animation:pulse 2s infinite}
+.hero h2{font-size:clamp(38px,6vw,70px);line-height:1.04;margin:18px 0 14px;font-weight:900;letter-spacing:-1.5px}
+.grad{background:linear-gradient(90deg,var(--ac),var(--ac2),var(--ac3),var(--ac));background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shine 6s linear infinite}
+.hero p{color:var(--mut);font-size:18px;max-width:560px;margin:0 0 26px}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.term{background:rgba(3,5,14,.8);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 60px color-mix(in srgb,var(--ac2) 18%,transparent);transform:perspective(1100px) rotateY(-7deg) rotateX(3deg);transition:transform .5s}
+.term:hover{transform:perspective(1100px) rotateY(0) rotateX(0)}
+.bar3{display:flex;gap:7px;align-items:center;padding:12px 15px;background:rgba(255,255,255,.04);border-bottom:1px solid var(--line)}
+.bar3 i{width:12px;height:12px;border-radius:50%}
+.bar3 i:nth-child(1){background:#ff5f57}.bar3 i:nth-child(2){background:#febc2e}.bar3 i:nth-child(3){background:#28c840}
+.bar3 span{margin-left:auto;font-size:12px;color:var(--mut);font-family:Consolas,monospace}
+.term pre{margin:0;padding:20px;min-height:250px;font-family:Consolas,'Fira Code',monospace;font-size:14px;line-height:1.75;white-space:pre-wrap;color:#cbd5ff}
+.tg{color:var(--ac3);font-weight:700}.nu{color:var(--ac)}.st{color:#a7f3d0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:6px 0 10px}
+.stat{background:var(--glass);border:1px solid var(--line);border-radius:18px;padding:16px 18px;backdrop-filter:blur(10px);transition:.3s}
+.stat:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--ac) 50%,transparent)}
+.stat b{display:block;font-size:30px;font-weight:900;line-height:1.1}
+.stat span{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:1.2px}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:290px 1fr;gap:30px;align-items:start;margin-top:28px}
+#side{position:sticky;top:88px;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:16px;backdrop-filter:blur(14px);max-height:calc(100vh - 110px);overflow:auto}
+#side h4{margin:2px 6px 10px;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut)}
+#side a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;color:var(--mut);text-decoration:none;font-size:14px;font-weight:600;transition:.2s;border:1px solid transparent}
+#side a em{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800;background:var(--glass2);transition:.2s}
+#side a:hover{color:var(--txt);background:var(--glass)}
+#side a.on{color:var(--txt);background:linear-gradient(135deg,color-mix(in srgb,var(--ac) 18%,transparent),color-mix(in srgb,var(--ac2) 18%,transparent));border-color:color-mix(in srgb,var(--ac) 35%,transparent)}
+#side a.on em{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f}
+#side a.done em{background:var(--ok);color:#03150d}
+#side a.done em::after{content:"\2713"}
+#side a.done em span{display:none}
+.mod{margin:14px 6px 4px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ac);font-weight:800}
+
+/* ---------- topic cards ---------- */
+.card{position:relative;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:var(--r);padding:clamp(18px,3vw,30px);margin:0 0 24px;border:1px solid var(--line);box-shadow:0 16px 50px rgba(0,0,0,.35);transition:border-color .3s,box-shadow .3s;overflow:hidden}
+.card:hover{border-color:color-mix(in srgb,var(--ac) 40%,transparent)}
+.rv{opacity:0;transform:translateY(26px);transition:opacity .7s,transform .7s}
+.rv.in{opacity:1;transform:none}
+.th{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
+.num{flex:none;width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-weight:900;font-size:20px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f;box-shadow:0 8px 26px color-mix(in srgb,var(--ac) 40%,transparent)}
+.th h3{margin:0;font-size:clamp(18px,2.4vw,24px);line-height:1.3;font-weight:800}
+.th small{display:block;color:var(--mut);font-weight:600;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:2px}
+ul.pts{list-style:none;padding:0;margin:0}
+ul.pts li{position:relative;padding:11px 14px 11px 42px;margin:8px 0;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:14px;transition:.25s}
+ul.pts li::before{content:"";position:absolute;left:16px;top:20px;width:9px;height:9px;border-radius:3px;background:linear-gradient(135deg,var(--ac),var(--ac3));transform:rotate(45deg)}
+ul.pts li:hover{background:rgba(255,255,255,.055);border-color:var(--line);transform:translateX(4px)}
+code{background:color-mix(in srgb,var(--ac) 12%,transparent);border:1px solid color-mix(in srgb,var(--ac) 28%,transparent);padding:1px 8px;border-radius:8px;color:#fde68a;font-family:inherit;font-weight:700;font-size:.95em}
+b{color:#fff}
+.sh{margin:22px 0 10px;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ac);font-weight:800;display:flex;align-items:center;gap:10px}
+.sh::after{content:"";flex:1;height:1px;background:var(--line)}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.fc{padding:13px 15px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid var(--line);transition:.25s}
+.fc:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--ac) 50%,transparent);box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.fc b{display:block;color:var(--ac);font-size:13.5px;margin-bottom:2px}
+.fc span{font-size:14.5px;color:#d6dcf7;line-height:1.5;display:block}
+.tl{position:relative;margin:4px 0 4px 8px;padding-left:28px;border-left:2px solid color-mix(in srgb,var(--ac) 40%,transparent)}
+.ti{position:relative;margin:0 0 14px;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid transparent;transition:.25s}
+.ti::before{content:"";position:absolute;left:-37px;top:17px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:3px solid var(--ac);box-shadow:0 0 12px var(--ac)}
+.ti:hover{background:rgba(255,255,255,.06);border-color:var(--line);transform:translateX(4px)}
+.ti .yr{display:inline-block;margin-bottom:3px;padding:1px 10px;border-radius:20px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f;font-weight:800;font-size:12px}
+.ti div{font-size:15px;color:#dbe1fa}
+
+.eli{margin-top:22px}
+.e5{max-height:0;opacity:0;overflow:hidden;transition:max-height .5s,opacity .4s,margin .4s,padding .4s;background:linear-gradient(135deg,color-mix(in srgb,var(--ac2) 30%,transparent),color-mix(in srgb,var(--ac3) 20%,transparent));border:1px solid color-mix(in srgb,var(--ac2) 45%,transparent);border-radius:16px;padding:0 18px;font-size:15.5px}
+.e5.on{max-height:360px;opacity:1;margin-top:14px;padding:16px 18px}
+.mark{float:right}
+.mark.done{background:linear-gradient(135deg,var(--ok),#10b981);color:#03150d;border:0}
+
+/* ---------- exam home ---------- */
+.xh{max-width:760px;margin:48px auto 0}
+.rules{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:20px 0}
+.rule{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:14px}
+.rule b{font-size:26px;line-height:1}
+.rule span{font-size:14.5px;color:#cfd6f5}
+.warnbox{background:linear-gradient(135deg,rgba(251,191,36,.16),rgba(251,113,133,.14));border:1px solid rgba(251,191,36,.45);border-radius:16px;padding:14px 16px;margin:14px 0;font-weight:600}
+.xh h2{font-size:34px;margin:0 0 4px;font-weight:900}
+
+/* ---------- exam ---------- */
+#exam{max-width:1000px;margin:0 auto;padding:22px clamp(14px,3vw,24px) 60px}
+.xtop{display:flex;align-items:center;gap:18px;margin-bottom:16px;flex-wrap:wrap}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{transform:rotate(-90deg);width:100%;height:100%}
+.ring circle{fill:none;stroke-width:8;stroke-linecap:round}
+.ring .tr{stroke:var(--glass2)}
+.ring .pr{stroke:url(#gr);stroke-dasharray:326.7;stroke-dashoffset:0;transition:stroke-dashoffset .5s linear}
+.ring.low .pr{stroke:var(--bad)}
+.timer{position:absolute;inset:0;display:grid;place-items:center;font-family:Consolas,monospace;font-weight:800;font-size:21px}
+.ring.low .timer{color:var(--bad)}
+.xinfo{flex:1;min-width:200px}
+.xinfo b{font-size:20px}
+.pbar{height:8px;background:var(--glass2);border-radius:9px;overflow:hidden;margin-top:9px}
+.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ac2),var(--ac3));transition:width .4s;box-shadow:0 0 14px var(--ac)}
+.qnav{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:10px;margin:16px 0 6px}
+.qnav button{min-height:44px;border-radius:14px;background:var(--glass);color:var(--mut);border:1px solid var(--line);cursor:pointer;font-size:14px;font-weight:700;transition:.2s;position:relative}
+.qnav button:hover{border-color:var(--ac);color:var(--txt)}
+.qnav button.done{background:linear-gradient(135deg,var(--ok),#10b981);color:#03150d;border:0}
+.qnav button.fl::after{content:"\2691";position:absolute;top:-6px;right:-3px;font-size:12px;color:var(--warn)}
+.qnav button.cur{outline:2px solid var(--ac);outline-offset:2px;box-shadow:0 0 18px var(--ac)}
+.qcard{padding:clamp(18px,3vw,32px);animation:pop .35s both}
+.qhead{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.qtag{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ac);font-weight:800}
+.flag{margin-left:auto}
+.flag.on{background:rgba(251,191,36,.18);border-color:var(--warn);color:var(--warn)}
+.qtext{font-size:clamp(18px,2.4vw,23px);font-weight:700;line-height:1.5;margin:0 0 20px}
+.opts{counter-reset:o;display:grid;gap:11px}
+.opt{counter-increment:o;display:flex;align-items:center;gap:14px;text-align:left;width:100%;background:rgba(255,255,255,.035);color:var(--txt);padding:14px 16px;border:1px solid var(--line);border-radius:16px;font-size:16px;font-weight:600;cursor:pointer;transition:.22s;animation:rise .4s both}
+.opt:nth-child(2){animation-delay:.05s}.opt:nth-child(3){animation-delay:.1s}.opt:nth-child(4){animation-delay:.15s}
+.opt::before{content:counter(o,upper-alpha);flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--glass2);font-weight:900;color:var(--ac);transition:.22s}
+.opt:hover{transform:translateX(7px);border-color:var(--ac);box-shadow:0 0 24px color-mix(in srgb,var(--ac) 25%,transparent)}
+.opt.sel{border-color:var(--ac);background:linear-gradient(135deg,color-mix(in srgb,var(--ac) 22%,transparent),color-mix(in srgb,var(--ac2) 22%,transparent));box-shadow:0 0 30px color-mix(in srgb,var(--ac) 30%,transparent)}
+.opt.sel::before{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f}
+.xnav{display:flex;gap:10px;margin-top:20px;align-items:center;flex-wrap:wrap}
+.xnav .sp{flex:1}
+.kb{font-size:12px;color:var(--mut)}
+.kb kbd{background:var(--glass2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-family:Consolas,monospace}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(2,3,10,.7);backdrop-filter:blur(8px);animation:rise .25s both;padding:18px}
+.mbox{max-width:440px;width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:pop .3s both;text-align:center}
+.mbox h3{margin:0 0 8px;font-size:24px}
+.mbox p{color:var(--mut);margin:0 0 20px}
+.mbox .row{display:flex;gap:10px;justify-content:center}
+
+/* ---------- results ---------- */
+.res{display:flex;gap:26px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.sring{position:relative;width:170px;height:170px;flex:none}
+.sring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.sring circle{fill:none;stroke-width:11;stroke-linecap:round}
+.sring .tr{stroke:var(--glass2)}
+.sring .pr{stroke:url(#gr2);stroke-dasharray:471.2;stroke-dashoffset:471.2;transition:stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1)}
+.sring .mid{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.sring .mid b{font-size:44px;font-weight:900;line-height:1}
+.sring .mid span{display:block;font-size:12px;color:var(--mut);letter-spacing:1px}
+.rtxt h3{font-size:30px;margin:0 0 6px;font-weight:900}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.chip{padding:6px 14px;border-radius:30px;border:1px solid var(--line);background:var(--glass);font-size:13px;font-weight:700;cursor:pointer;color:var(--mut);transition:.2s}
+.chip.on{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#04070f;border:0}
+.ak{margin:10px 0;padding:14px 16px;border-left:4px solid var(--ok);background:rgba(255,255,255,.035);border-radius:14px;animation:rise .4s both}
+.ak.x{border-left-color:var(--bad)}
+.ak p{margin:0 0 6px;font-weight:600}
+.ak .y{font-size:14px;color:var(--mut)}
+.ak .c{font-size:14px;color:var(--ok);font-weight:800}
+.ak .rv2{font-size:12px;color:var(--mut);margin-top:4px}
+.note{color:var(--mut);font-size:14px}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:90;width:100%;height:100%}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:30px 0 10px}
+
+/* ---------- responsive ---------- */
+@media(max-width:980px){
+  .hero{grid-template-columns:1fr;padding-top:34px}.term{transform:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .layout{grid-template-columns:1fr}
+  #side{position:sticky;top:64px;z-index:30;display:flex;gap:6px;overflow-x:auto;padding:8px;max-height:none;border-radius:16px}
+  #side h4,.mod{display:none}#side a{flex:none;white-space:nowrap}#side a span.t{display:none}
+  .rules{grid-template-columns:1fr}
+  .dots{display:none}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- print (Print button saves the reviewer as PDF) ---------- */
+@media print{
+  #fx,.aurora,.grid,header,.hero,.stats,#side,.cta,.eli .btn,#exh,#exam,footer,#prog,#confetti{display:none!important}
+  body{background:#fff;color:#111}
+  .layout{display:block;margin:0}
+  .card{background:#fff;border:1px solid #bbb;box-shadow:none;break-inside:avoid;opacity:1!important;transform:none!important;backdrop-filter:none}
+  .rv{opacity:1!important;transform:none!important}
+  b,.th h3{color:#111}.fc b{color:#0f766e}.fc span,.ti div,ul.pts li{color:#222}
+  ul.pts li,.fc,.ti{background:#fafafa;border:1px solid #e5e5e5}
+  code{color:#7c2d12;background:#fff7ed;border-color:#fdba74}
+  .e5{max-height:none!important;opacity:1!important;margin-top:8px;padding:10px 14px;background:#f3f0ff;border-color:#c4b5fd;color:#111}
+  .ti::before{background:#fff}.ti .yr{color:#04070f}
+}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="aurora"><i></i><i></i><i></i></div>
+<div class="grid"></div>
+<canvas id="confetti" class="hide"></canvas>
+<div id="prog"></div>
+
+<header id="topbar">
+  <div class="brand"><div class="logo">UST</div><div>Understanding the Self<small>GEC 111 &middot; Review Guide</small></div></div>
+  <div class="tabs">
+    <button class="tab on" id="tabRev" onclick="show('rev')">&#128216; Reviewer</button>
+    <button class="tab" id="tabEx" onclick="show('exh')">&#128221; Exam</button>
+  </div>
+  <div class="dots" id="dots" title="Accent color">
+    <b style="background:#2dd4bf;color:#2dd4bf" data-t="teal"></b>
+    <b style="background:#38bdf8;color:#38bdf8" data-t="sky"></b>
+    <b style="background:#a78bfa;color:#a78bfa" data-t="violet"></b>
+    <b style="background:#fb7185;color:#fb7185" data-t="rose"></b>
+  </div>
+  <button class="ibtn" onclick="toggleAll()">&#129490; ELI5 all</button>
+  <a class="ibtn" href="UNDERSTANDING_THE_SELF_REVIEWER.pdf" download="UNDERSTANDING_THE_SELF_REVIEWER.pdf" style="text-decoration:none">&#11015; Download PDF Reviewer</a>
+</header>
+
+<main class="wrap">
+  <!-- REVIEWER -->
+  <section id="rev">
+    <div class="hero">
+      <div>
+        <span class="pill">Lessons 1-2 &middot; 13 topics</span>
+        <h2>Know thy <span class="grad">self</span><br>one lesson at a time.</h2>
+        <p>Explore the nature of the self, self-esteem, self-awareness, philosophical roots, psychological perspectives, culture, and identity development. This reviewer includes concise summaries, quick comparisons, and a timed 60-item exam.</p>
+        <div class="cta">
+          <button class="btn big" onclick="document.getElementById('t0').scrollIntoView()">Start reviewing &rarr;</button>
+          <button class="btn big ghost" onclick="show('exh')">Take the exam</button>
+        </div>
+      </div>
+      <div class="term">
+        <div class="bar3"><i></i><i></i><i></i><span>ust.log</span></div>
+        <pre id="typer"></pre>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sTop">0/13</b><span>Topics studied</span></div>
+      <div class="stat"><b>60</b><span>Exam items</span></div>
+      <div class="stat"><b>45:00</b><span>Time limit</span></div>
+      <div class="stat"><b id="sBest">--</b><span>Best score</span></div>
+    </div>
+    <div class="layout">
+      <nav id="side"><h4>Topics</h4></nav>
+      <div id="topics"></div>
+    </div>
+  </section>
+
+  <!-- EXAM HOME -->
+  <section id="exh" class="hide">
+    <div class="xh">
+      <div class="card">
+        <h2>&#128221; Exam <span class="grad">Arena</span></h2>
+        <p class="note">Focus up. Once you start, there is no turning back.</p>
+        <div class="rules">
+          <div class="rule"><b>&#129518;</b><span>60 items covering the core lessons</span></div>
+          <div class="rule"><b>&#9201;&#65039;</b><span>45 minutes</span></div>
+          <div class="rule"><b>&#128584;</b><span>The reviewer is hidden during the exam</span></div>
+          <div class="rule"><b>&#128683;</b><span>Switch tabs or minimize and the exam ends. No score or answers shown.</span></div>
+        </div>
+        <p class="note">You can retake it only after 30 minutes.</p>
+        <div id="cool" class="warnbox hide"></div>
+        <button class="btn big" id="startBtn" onclick="startExam()">Start Exam &#128640;</button>
+      </div>
+      <div id="resultBox"></div>
+    </div>
+  </section>
+</main>
+
+<!-- EXAM -->
+<section id="exam" class="hide">
+  <div class="card" style="margin-bottom:18px">
+    <div class="xtop">
+      <div class="ring" id="ring">
+        <svg viewBox="0 0 120 120"><defs><linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs><circle class="tr" cx="60" cy="60" r="52"/><circle class="pr" id="pr" cx="60" cy="60" r="52"/></svg>
+        <div class="timer" id="timer">45:00</div>
+      </div>
+      <div class="xinfo"><b id="qcount"></b><div class="pbar"><i id="abar"></i></div><div class="kb" style="margin-top:8px">Keys: <kbd>1</kbd>-<kbd>4</kbd> pick &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> move &middot; <kbd>F</kbd> flag</div></div>
+      <button class="btn" onclick="submitExam()">Submit &#10004;</button>
+    </div>
+    <div class="qnav" id="qnav"></div>
+  </div>
+  <div class="card qcard" id="qbox"></div>
+  <div class="xnav">
+    <button class="btn ghost" onclick="go(-1)">&#9664; Prev</button>
+    <span class="sp"></span>
+    <button class="btn ghost" onclick="go(1)">Next &#9654;</button>
+  </div>
+</section>
+
+<footer id="foot">Made for studying. Good luck! &#128156;</footer>
+
+<script>
+/* ===================== CONTENT (GEC 111 - Understanding the Self) ===================== */
+const T=[{"t":"Nature of the Self","m":0,"sum":["The self is one of the most complex notions in psychology: dynamic, ever-changing, and not something we fully understand in a single semester.","Our [[self-concept]] is the understanding of who we are, and it influences how we think, feel, and act.","William James describes the self as both the [[I]] (the knower) and the [[Me]] (the known self).","Infants begin with a rudimentary self-concept; it becomes more complex as children develop."],"secs":[{"h":"Three adaptive functions of the self","s":"grid","items":[["Managerial function","Helps us organize behavior and plan for the future"],["Organizational function","Acts as a schema that helps us interpret and remember self-relevant information"],["Emotional function","Helps determine how we feel and react in a situation"]]}],"eli5":"The self is not a fixed label. It grows as we learn, reflect, and interact with people, so who we are is always becoming."},{"t":"Carl Rogers and the Elements of the Self","m":1,"sum":["Carl Rogers explained the self as the set of perceptions a person has of himself and his relationships with others.","The four elements are [[self-image]], [[ideal self]], [[looking-glass self]], and [[real self]].","A healthy self-image is shaped by personal feelings and values rather than by other people's opinions alone.","Feedback from others can confirm or adjust how we see ourselves."],"secs":[{"h":"The four elements","s":"grid","items":[["Self-image","What you believe you are, including your strengths and weaknesses"],["Ideal self","Who you want to become"],["Looking-glass self","How you think others see you"],["Real self","Who you actually are in thought, feeling, and action"]]},{"h":"Healthy vs. unhealthy self-image","s":"grid","items":[["Healthy self-image","Based on personal values, optimism, self-worth, and realistic self-awareness"],["Unhealthy self-image","Heavily influenced by others, negative self-criticism, and constant focus on flaws"]]}],"eli5":"Your self is like a mirror inside your mind. If you listen to your own values and not only other people's opinions, your picture of yourself becomes healthier."},{"t":"Self-Esteem","m":1,"sum":["[[Self-esteem]] is a person's overall sense of self-worth or personal value.","Healthy self-esteem helps a person feel confident, assertive, and capable of growth.","Low self-esteem can hold a person back because they doubt they can succeed.","Maslow placed esteem needs after love and belonging, and both inner respect and respect from others matter."],"secs":[{"h":"Why it matters","s":"grid","items":[["High self-esteem","Confidence, positive outlook, ability to say no, willingness to grow"],["Low self-esteem","Lack of confidence, negative self-talk, fear of failure, excess shame"],["Difference from self-efficacy","Self-esteem is worth; self-efficacy is belief in future capability"]]},{"h":"Maslow's hierarchy","s":"grid","items":[["1. Physiological","Food, water, sleep"],["2. Safety","Security, stability"],["3. Love and belonging","Family, friends, community"],["4. Esteem","Respect and self-respect"],["5. Self-actualization","Becoming the best version of oneself"]]}],"eli5":"Self-esteem is how much you value yourself. If you respect yourself, you are more likely to be brave enough to grow and try."},{"t":"Self-Awareness","m":1,"sum":["[[Self-awareness]] is the ability to focus on oneself and compare actions, thoughts, and emotions against internal standards.","It can be constructive when it leads to reflection and growth, but it can also be painful when it exposes failure or inconsistency.","People can become self-aware through [[introspection]], observing their behavior, and using self-schemas.","Reflection is positive and curious; [[rumination]] is repetitive, negative self-focus."],"secs":[{"h":"Two kinds of self-focus","s":"grid","items":[["Reflection","Open, positive, constructive self-examination"],["Rumination","Replaying failures and threats without finding relief"]]},{"h":"Self-perception theory","s":"grid","items":[["Bem","We learn how we feel by observing our own actions"],["Intrinsic motivation","We act because we enjoy it"],["Extrinsic motivation","We act because of rewards, pressure, or outcomes"]]}],"eli5":"Self-awareness is like looking inward with a mirror. You can use it to learn and improve, or you can keep staring at mistakes and feel worse."},{"t":"Self-Perception and Motivation","m":2,"sum":["Bem's self-perception theory says we infer our attitude by observing what we do when feelings are uncertain.","[[Intrinsic motivation]] comes from enjoyment and interest, while [[extrinsic motivation]] comes from rewards and external pressure.","The [[over-justification effect]] happens when extrinsic rewards reduce interest in an activity that was already intrinsically enjoyed.","Motivation shapes persistence, habits, and how we understand ourselves."],"secs":[{"h":"Key ideas","s":"grid","items":[["Intrinsic motivation","Enjoyment, curiosity, personal meaning"],["Extrinsic motivation","Grades, rewards, praise, pressure"],["Over-justification effect","Rewards can reduce original interest in a task"]]}],"eli5":"If you enjoy drawing because it feels fun, giving a prize for it may make the fun feel less important later. Motivation can change when the reason for doing something changes."},{"t":"Philosophical Perspectives","m":2,"sum":["The self has been discussed by philosophers for centuries: [[Socrates]], [[Plato]], [[Aristotle]], [[Descartes]], [[Locke]], [[Hume]], and [[Kant]].","Socrates said, 'Know thyself.' Plato described the soul as rational, spirited, and appetitive.","Aristotle explained the self in terms of matter and form, while Descartes emphasized the thinking self: 'I think, therefore I am.'","Locke tied personal identity to memory and consciousness; Hume questioned whether a simple self really exists."],"secs":[{"h":"Important philosophers","s":"grid","items":[["Socrates","Know thyself"],["Plato","Three-part soul"],["Aristotle","Hylomorphism; the soul is the form of the body"],["Descartes","Cogito ergo sum; mind-body dualism"],["Locke","Personal identity through consciousness/memory"],["Hume","Bundle theory of the self"]]}],"eli5":"Philosophers ask the deepest version of the same question: who am I, really, and what makes me the same person over time?"},{"t":"Psychodynamic Perspective","m":2,"sum":["The psychodynamic view studies underlying psychological forces and unconscious motives shaped by early childhood experiences.","Sigmund Freud proposed the [[id]], [[ego]], and [[superego]] as the main parts of personality.","The id is instinctive and unconscious; the ego mediates with reality; the superego acts as conscience.","Psychosexual stages and inner conflict help explain personality development and distress."],"secs":[{"h":"Freud's structural model","s":"grid","items":[["Id","Unconscious drives, instinct, pleasure"],["Ego","Rational mediator between desire and reality"],["Superego","Moral standards and conscience"]]},{"h":"Psychosexual stages","s":"grid","items":[["Oral","Pleasure from sucking and feeding"],["Anal","Control and toilet training"],["Phallic","Awareness of gender and sexuality"],["Latency","Quiet period of social development"],["Genital","Mature sexual and emotional development"]]}],"eli5":"Freud said there is a hidden part of us that influences behavior. Some choices come from reasons we do not fully know, like thoughts and feelings under the surface."},{"t":"Behavioral Perspective","m":3,"sum":["Behaviorism studies observable behavior and the way it is learned from the environment.","[[Classical conditioning]] pairs a neutral stimulus with a response; [[operant conditioning]] shapes behavior through reinforcement and punishment.","Pavlov, Watson, Thorndike, and Skinner are key figures in this viewpoint.","This perspective focuses on what people do rather than hidden inner thoughts."],"secs":[{"h":"Key contributors","s":"grid","items":[["Pavlov","Classical conditioning"],["Watson","Conditioned emotional responses"],["Thorndike","Law of effect"],["Skinner","Operant conditioning and reinforcement"]]}],"eli5":"If a behavior gets rewarded, it is more likely to happen again. If it is punished or ignored, it may fade away."},{"t":"Cognitive Perspective","m":3,"sum":["The cognitive perspective focuses on mental processes such as thinking, memory, language, and problem solving.","It emphasizes how people interpret information and construct meaning.","[[Jean Piaget]] studied cognitive development in children, while Broadbent and Neisser contributed to information-processing ideas.","This approach contrasts with behaviorism by allowing the mind to be a legitimate object of study."],"secs":[{"h":"Core ideas","s":"grid","items":[["Cognition","Thinking, memory, and understanding"],["Gestalt psychology","People perceive wholes, not just parts"],["Piaget","Children develop through stages of thinking"],["Chomsky","Language is a fundamental mental process"]]}],"eli5":"The mind is like a computer that stores information, compares it, and helps us make sense of the world. How we think affects how we act."},{"t":"Humanistic Perspective","m":3,"sum":["Humanistic psychology emphasizes meaning, freedom, choice, and personal growth.","People are seen as naturally trying to reach their fullest potential through [[self-actualization]].","Maslow's hierarchy shows how basic needs must be met before higher goals can be pursued.","Carl Rogers believed people need [[unconditional positive regard]] to grow without fear of judgment."],"secs":[{"h":"Key ideas","s":"grid","items":[["Maslow","Hierarchy of needs; peak experiences"],["Rogers","Person-centered theory and acceptance"],["Rollo May","Existential choice and human responsibility"]]}],"eli5":"Humanistic psychology says people are more than just habits or instincts. We are capable of choosing, growing, and becoming better versions of ourselves."},{"t":"Biological Perspective","m":4,"sum":["The biological perspective explains behavior through the brain, nervous system, hormones, and genetics.","It studies sensation, perception, memory, emotion, and consciousness from a neuroscientific standpoint.","Because the brain and body work together, biological factors shape how we feel, think, and act.","This perspective connects behavior with the physical systems that support it."],"secs":[{"h":"Biopsychology focuses on","s":"grid","items":[["Brain function","How mental activity depends on neural processes"],["Hormones and emotion","How body chemicals affect mood and behavior"],["Learning and memory","How the brain stores and retrieves information"]]}],"eli5":"Your body and brain are part of the story of who you are. Even your thoughts and emotions are shaped by how your nervous system works."},{"t":"Eastern-Western and Sociocultural Perspectives","m":4,"sum":["Culture shapes the self: the [[Western]] view usually emphasizes the individual, while the [[Eastern]] view often stresses relationships, harmony, and the group.","Social and cultural factors include family, religion, gender roles, rituals, ethnicity, and social expectations.","[[Lev Vygotsky]] argued that learning is shaped through social interaction and cultural tools.","Social psychology studies how people think, feel, and act in the presence of others."],"secs":[{"h":"Comparison","s":"grid","items":[["Western","Direct expression, personal autonomy"],["Eastern","Roundabout communication, harmony, collective identity"]]},{"h":"Important concepts","s":"grid","items":[["Social psychology","Behavior shaped by actual or imagined others"],["Cultural psychology","Mind and culture are inseparable"],["Vygotsky","Development through social interaction and culture"]]}],"eli5":"Culture is like the air we breathe. It shapes how we express feelings, solve problems, and understand our place in the world."},{"t":"Erikson's Psychosocial Development","m":4,"sum":["Erik Erikson built on the idea of personality development by emphasizing social and emotional challenges across the life span.","Each stage of life has a major conflict, such as trust versus mistrust or identity versus role confusion.","A successful resolution gives a person a healthy virtue, such as hope, identity, or wisdom.","Identity formation continues throughout life and is influenced by social circumstances."],"secs":[{"h":"The eight stages","s":"grid","items":[["Infancy","Trust vs. mistrust"],["Toddlerhood","Autonomy vs. shame and doubt"],["Early childhood","Initiative vs. guilt"],["School age","Industry vs. inferiority"],["Adolescence","Identity vs. role confusion"],["Young adulthood","Intimacy vs. isolation"],["Middle adulthood","Generativity vs. stagnation"],["Late adulthood","Integrity vs. despair"]]}],"eli5":"Life is a series of social challenges. Each stage asks, 'Can I trust people, can I become myself, can I love, and can I live with meaning?'"}];
+const Q=[{"q":"Which statement best describes the self as described in the module?","c":"The self is dynamic and continually changing","w":["The self is fixed at birth","The self is only social status","The self is just the physical body"],"t":1},{"q":"According to William James, which part of the self is the 'I'?","c":"The subjective knower or processor of information","w":["The physical body only","The object that is known","The social role assigned by others"],"t":1},{"q":"John Locke's idea of Tabula Rasa means that:","c":"The mind begins as a blank slate and develops through experience","w":["The self is fixed at birth","Only instincts shape identity","The self is formed without social influence"],"t":1},{"q":"Which statement best explains self-concept clarity?","c":"It is how clearly and consistently a person understands the self","w":["It is how much money a person earns","It is the same as personality alone","It is only about physical appearance"],"t":1},{"q":"Which element of Rogers's self theory refers to how a person sees himself?","c":"Self-image","w":["Superego","Id","Self-efficacy"],"t":2},{"q":"A student wants to be confident but sees herself as shy. This gap is between:","c":"The ideal self and the self-image","w":["The id and ego","Self-esteem and self-efficacy","Reflection and rumination"],"t":2},{"q":"The looking-glass self refers to:","c":"How a person thinks others perceive him or her","w":["A person's hidden unconscious motives","A biological response to stress","The highest level of Maslow's hierarchy"],"t":2},{"q":"Which description best matches a healthy self-image?","c":"It is based on personal values and realistic self-awareness","w":["It depends only on society's approval","It is always free from pain or criticism","It ignores personal strengths and weaknesses"],"t":2},{"q":"Self-esteem is best defined as:","c":"A person's overall sense of self-worth or personal value","w":["A belief in how well one can perform future actions","The unconscious pressure of society","A person's intelligence quotient"],"t":3},{"q":"Which statement about self-esteem is correct?","c":"Low self-esteem can hold a person back because they doubt they can succeed","w":["Self-esteem is only about popularity","Self-esteem is the same as self-efficacy","Self-esteem never changes across life"],"t":3},{"q":"In Maslow's hierarchy, which need comes right after safety?","c":"Love and belonging","w":["Self-actualization","Physiological needs","Esteem"],"t":3},{"q":"Self-efficacy is:","c":"The belief that one can handle future tasks and challenges well","w":["The same as self-esteem","The ability to avoid all stress","A type of unconscious drive"],"t":3},{"q":"Which statement best defines self-awareness?","c":"It is the ability to focus on oneself and compare actions with internal standards","w":["It is the same as having a high income","It is only an outcome of childhood experiences","It means ignoring one's emotions"],"t":4},{"q":"Introspection is best described as:","c":"Looking inward to examine one's thoughts, motives, and feelings","w":["Reading other people's minds","Making choices based only on rewards","Avoiding self-reflection"],"t":4},{"q":"Reflection differs from rumination because reflection is:","c":"Constructive and open to learning","w":["Always depressive and hopeless","The same as basic instinct","Only about memory and intelligence"],"t":4},{"q":"Bem's self-perception theory suggests that people infer their feelings by:","c":"Observing their behavior and the situation","w":["Focusing only on external rewards","Ignoring all social feedback","Avoiding self-examination"],"t":5},{"q":"Intrinsic motivation is most closely linked to:","c":"Enjoyment and personal interest in the activity","w":["Pressure from others","Fear of punishment","The desire to impress society alone"],"t":5},{"q":"The over-justification effect occurs when:","c":"External rewards reduce the original interest in an activity","w":["A person becomes more focused on personal values","A person gains self-esteem naturally","An internal need is fully satisfied"],"t":5},{"q":"The philosopher who said 'Know thyself' was:","c":"Socrates","w":["Aristotle","Locke","Skinner"],"t":6},{"q":"Plato's view of the soul included which parts?","c":"Reason, spirit, and appetite","w":["Id, ego, and superego","Body, mind, and memory","Self-image, ideal self, and real self"],"t":6},{"q":"Descartes is best known for which idea?","c":"I think, therefore I am","w":["Tabula rasa","The hidden unconscious","The collective unconscious"],"t":6},{"q":"Freud's id is best described as:","c":"The unconscious storehouse of instinctive drives","w":["The moral conscience","The mediator with reality","The social identity"],"t":7},{"q":"Which statement about the ego is most accurate?","c":"It mediates between desire and reality","w":["It is only a moral voice","It is the source of all instincts","It has no relation to behavior"],"t":7},{"q":"The superego is best described as:","c":"The conscience or moral standard","w":["The immediate pleasure-seeking part of the mind","A memory system","A biological response to fear"],"t":7},{"q":"Ivan Pavlov is associated with:","c":"Classical conditioning","w":["Existential choice","Humanistic therapy","Cognitive development"],"t":8},{"q":"B. F. Skinner emphasized:","c":"Operant conditioning through reinforcement and punishment","w":["The role of dreams in personal identity","The soul as an immortal form","The stages of psychosocial conflict"],"t":8},{"q":"The cognitive perspective focuses on:","c":"Thinking, memory, language, and problem solving","w":["Only external rewards","Only biological instincts","Only social roles"],"t":9},{"q":"Jean Piaget is well known for studying:","c":"Cognitive development in children","w":["Biological rhythms","Classical conditioning","Existentialism"],"t":9},{"q":"Which concept is most associated with humanistic psychology?","c":"Self-actualization","w":["The id","Operant conditioning","The law of effect"],"t":10},{"q":"Carl Rogers emphasized which approach in helping others?","c":"Unconditional positive regard","w":["Punishment-based learning","The unconscious unconsciousness","Behavioral shaping"],"t":10},{"q":"The biological perspective explains behavior through:","c":"The brain, nerves, hormones, and genetics","w":["Only moral rules","Only social approval","Only family stories"],"t":11},{"q":"A major focus of biopsychology is:","c":"How the brain and body support thinking, emotion, and behavior","w":["How people avoid all criticism","How the ideal self develops","How society defines social roles"],"t":11},{"q":"The Eastern view of the self is often said to emphasize:","c":"Harmony, relationships, and collective identity","w":["Total independence from all social influence","The elimination of all feelings","Only private ambition and competition"],"t":12},{"q":"Lev Vygotsky emphasized that development is shaped by:","c":"Social interaction and cultural tools","w":["A fixed biological blueprint alone","Strict punishment and reward","Purely philosophical reflection"],"t":12},{"q":"Which Erikson stage is associated with adolescence?","c":"Identity vs. role confusion","w":["Trust vs. mistrust","Autonomy vs. shame and doubt","Integrity vs. despair"],"t":13},{"q":"The final stage of Erikson's psychosocial theory is:","c":"Integrity vs. despair","w":["Industry vs. inferiority","Initiative vs. guilt","Intimacy vs. isolation"],"t":13},{"q":"Which action is an example of introspection?","c":"Examining your own thoughts, feelings, and motives","w":["Watching another person's behavior","Measuring brain activity only","Following a rule without reflection"],"t":4},{"q":"Self-awareness theory says that focusing on yourself can lead you to:","c":"Compare your behavior with your internal standards","w":["Forget your personal values","Know exactly what everyone else thinks","Avoid noticing your actions"],"t":4},{"q":"Which statement best distinguishes rumination from reflection?","c":"Rumination repeats negative thoughts, while reflection explores the self constructively","w":["Rumination is always helpful, while reflection is harmful","They are identical processes","Reflection only concerns other people"],"t":4},{"q":"When people are unsure how they feel, self-perception theory says they may:","c":"Infer their attitude from their own behavior and the situation","w":["Rely only on unconscious drives","Assume rewards reveal their personality","Ignore what they did"],"t":5},{"q":"A child who enjoys reading starts receiving prizes for every book and later reads less for fun. This may illustrate:","c":"The over-justification effect","w":["Self-concept clarity","Classical conditioning","The looking-glass self"],"t":5},{"q":"In self theory, the looking-glass self is specifically:","c":"A person's perception of how others perceive them","w":["A person's actual behavior in private","A desired future identity","A person's belief in their ability to perform a task"],"t":2},{"q":"Which sequence correctly lists Maslow's needs from lower to higher?","c":"Physiological, safety, love and belonging, esteem, self-actualization","w":["Safety, esteem, physiological, belonging, self-actualization","Love, physiological, safety, self-actualization, esteem","Esteem, belonging, safety, physiological, self-actualization"],"t":3},{"q":"For John Locke, personal identity is most closely connected to:","c":"Continuity of consciousness and memory","w":["The unchanging physical body alone","Social status alone","The balance of id and superego"],"t":6},{"q":"David Hume's bundle theory views the self as:","c":"A succession or collection of perceptions rather than a simple unchanging entity","w":["A single permanent soul that can be directly observed","Only a person's public reputation","A balance of biological needs"],"t":6},{"q":"Which idea is associated with Immanuel Kant in the guide?","c":"People can reason and choose beyond immediate impulses and circumstances","w":["Behavior is shaped only by rewards","The self is only a bundle of perceptions","Children learn solely through imitation"],"t":6},{"q":"In Freud's model, what is the ego's main role?","c":"Mediating between the id's drives, the superego, and external reality","w":["Creating all instinctive drives","Serving only as moral conscience","Storing conscious memories only"],"t":7},{"q":"Freud's psychodynamic perspective gives particular importance to:","c":"Unconscious conflicts and early childhood experiences","w":["Only observable behavior","Only cultural differences between societies","Brain structures without experience"],"t":7},{"q":"A bell repeatedly paired with food eventually makes a dog salivate. This is:","c":"Classical conditioning","w":["Operant conditioning","Self-perception","Cognitive dissonance"],"t":8},{"q":"A student studies more because praise follows completed assignments. This is an example of:","c":"Positive reinforcement","w":["Negative reinforcement","Classical extinction","Intrinsic motivation"],"t":8},{"q":"Removing an unpleasant noise after a desired action, making that action more likely, is:","c":"Negative reinforcement","w":["Positive punishment","Classical conditioning","The law of effect only"],"t":8},{"q":"The cognitive perspective differs from behaviorism because it studies:","c":"Internal processes such as memory, thought, and language","w":["Only actions that can be seen","Only inherited reflexes","Only unconscious conflict"],"t":9},{"q":"Who coined the term 'cognitive psychology' in 1967, according to the guide?","c":"Ulric Neisser","w":["Ivan Pavlov","Rollo May","Edward Thorndike"],"t":9},{"q":"Which is a central emphasis of humanistic psychology?","c":"Personal meaning, freedom, and potential for growth","w":["Behavior shaped entirely by reinforcement","Unconscious drives as the only cause of action","Memory as the sole basis of identity"],"t":10},{"q":"In Rogers's approach, unconditional positive regard means:","c":"Accepting a person without making their worth conditional on meeting demands","w":["Approving every behavior without limits","Giving rewards for desired actions","Avoiding empathy during therapy"],"t":10},{"q":"Which is an example of a biopsychological question?","c":"How does nervous-system activity relate to emotion and memory?","w":["How do social roles vary across cultures?","How does a person define an ideal self?","How does reinforcement change a classroom behavior?"],"t":11},{"q":"Cultural psychology is based on the idea that:","c":"Mind and culture influence and shape one another","w":["Culture has no effect on psychological processes","All findings from one culture are automatically universal","Biology alone determines identity"],"t":12},{"q":"The fundamental attribution error is the tendency to:","c":"Overemphasize personal traits and underemphasize the situation when explaining others' behavior","w":["Credit every success to luck","Assume everyone shares the same culture","Explain one's own actions only through biology"],"t":12},{"q":"In Erikson's theory, the main psychosocial task of young adulthood is:","c":"Intimacy vs. isolation","w":["Industry vs. inferiority","Trust vs. mistrust","Integrity vs. despair"],"t":13},{"q":"In Erikson's theory, generativity vs. stagnation is associated with:","c":"Middle adulthood and contributing to future generations","w":["Infancy and developing trust","Adolescence and exploring identity","Late adulthood and reviewing one's life"],"t":13}];
+const MOD=["Module 1: Nature of the Self","Module 2: Self-Concept and Esteem","Module 3: Awareness and Motivation","Module 4: Philosophical and Psychological Views","Module 5: Culture, Identity, and Development"];
+const MODSTART={0:0,3:1,6:2,9:3,12:4};/* ===================== HELPERS ===================== */
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt=s=>esc(s).replace(/\[\[(.+?)\]\]/g,'<code>$1</code>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const DUR=2700, COOL=30*60*1000;
+const ls={get:(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+
+/* ===================== THEME ===================== */
+function setTheme(t){document.documentElement.dataset.theme=t;ls.set('wfTheme',t);document.querySelectorAll('#dots b').forEach(b=>b.classList.toggle('on',b.dataset.t===t));if(window.recolor)recolor()}
+document.querySelectorAll('#dots b').forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
+
+/* ===================== BUILD REVIEWER ===================== */
+let done=[];try{done=JSON.parse(ls.get('wfDone','[]'))||[]}catch(e){done=[]}
+function updStats(){
+  $('sTop').textContent=done.length+'/'+T.length;
+  const b=ls.get('ustBest60',null);$('sBest').textContent=b===null?'--':b+'/'+Q.length;
+  document.querySelectorAll('#side a').forEach((a,i)=>a.classList.toggle('done',done.includes(i)));
+  document.querySelectorAll('.mark').forEach((m,i)=>{const d=done.includes(i);m.classList.toggle('done',d);m.textContent=d?'✓ Studied':'Mark as studied'});
+}
+function section(s){
+  let h='<div class="sh">'+esc(s.h)+'</div>';
+  if(s.s==='tl')h+='<div class="tl">'+s.items.map(i=>'<div class="ti"><span class="yr">'+esc(i[0])+'</span><div>'+fmt(i[1])+'</div></div>').join('')+'</div>';
+  else h+='<div class="fg">'+s.items.map(i=>'<div class="fc"><b>'+esc(i[0])+'</b><span>'+esc(i[1])+'</span></div>').join('')+'</div>';
+  return h;
+}
+T.forEach((x,i)=>{
+  if(i in MODSTART){const m=document.createElement('div');m.className='mod';m.textContent=MOD[MODSTART[i]];$('side').appendChild(m)}
+  const a=document.createElement('a');a.href='#t'+i;a.id='s'+i;
+  a.innerHTML='<em><span>'+(i+1)+'</span></em><span class="t">'+esc(x.t.split(/[:(]/)[0].trim())+'</span>';
+  $('side').appendChild(a);
+  const d=document.createElement('div');d.className='card rv';d.id='t'+i;
+  d.innerHTML='<div class="th"><div class="num">'+(i+1)+'</div><div><small>'+esc(MOD[x.m])+'</small><h3>'+esc(x.t)+'</h3></div></div>'
+   +'<ul class="pts">'+x.sum.map(s=>'<li>'+fmt(s)+'</li>').join('')+'</ul>'
+   +x.secs.map(section).join('')
+   +'<div class="eli"><button class="btn sm" onclick="this.parentNode.querySelector(\'.e5\').classList.toggle(\'on\')">&#129490; Explain like I\'m 5</button>'
+   +'<button class="btn sm ghost mark" onclick="toggleDone('+i+')">Mark as studied</button>'
+   +'<div class="e5">&#129490; '+esc(x.eli5)+'</div></div>';
+  $('topics').appendChild(d);
+});
+function toggleDone(i){const k=done.indexOf(i);if(k>=0)done.splice(k,1);else done.push(i);ls.set('wfDone',JSON.stringify(done));updStats()}
+let allOn=false;
+function toggleAll(){allOn=!allOn;document.querySelectorAll('.e5').forEach(e=>e.classList.toggle('on',allOn));if(!examActive)show('rev')}
+/* reveal + scroll spy + spotlight */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.05});
+document.querySelectorAll('.rv').forEach(c=>io.observe(c));
+const spy=new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){document.querySelectorAll('#side a').forEach(a=>a.classList.remove('on'));const a=$('s'+e.target.id.slice(1));if(a){a.classList.add('on');if(innerWidth<=980)a.scrollIntoView({inline:'center',block:'nearest'})}}
+}),{rootMargin:'-30% 0px -60% 0px'});
+document.querySelectorAll('#topics .card').forEach(c=>spy.observe(c));
+/* hero typewriter */
+const TYPE=`> open "Understanding the Self Review"
+Self: dynamic and ever-changing
+I = the knower  |  Me = the known
+Mind + body + society + culture
+Reflect -> Understand -> Grow
+
+> status: ready to understand the self`;
+const col=s=>esc(s).replace(/"([^"]*)"/g,'<span class="st">"$1"</span>').replace(/\b(\d{4})\b/g,'<span class="nu">$1</span>').replace(/^&gt;/gm,'<span class="tg">&gt;</span>');
+(function(){let i=0;const el=$('typer');
+  function step(){
+    if(i<=TYPE.length){el.innerHTML=col(TYPE.slice(0,i))+'<span class="cur"></span>';i++;setTimeout(step,i%10===0?140:30)}
+    else setTimeout(()=>{i=0;step()},3800);
+  }step();
+})();
+
+/* ===================== BACKGROUND SYMBOLS ===================== */
+(function(){
+  const cv=$('fx'),ctx=cv.getContext('2d');let W,H,P=[];
+  const SYM=['I','Me','Self','Mind','Body','Culture','Values','Identity','Memory','Emotion','Growth','Socrates','James','Rogers','Maslow','Erikson','Reflect','Know'];
+  function size(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+  size();addEventListener('resize',size);
+  for(let i=0;i<46;i++)P.push({x:Math.random()*1600,y:Math.random()*1000,s:SYM[i%SYM.length],v:.12+Math.random()*.4,z:10+Math.random()*20,o:.04+Math.random()*.1,r:Math.random()*6.28,w:(Math.random()-.5)*.003});
+  let colr='#2dd4bf';
+  window.recolor=()=>{colr=getComputedStyle(document.documentElement).getPropertyValue('--ac').trim()||'#2dd4bf'};recolor();
+  (function loop(){
+    ctx.clearRect(0,0,W,H);ctx.fillStyle=colr;
+    P.forEach(p=>{p.y-=p.v;p.r+=p.w;if(p.y<-40){p.y=H+40;p.x=Math.random()*W}
+      ctx.save();ctx.globalAlpha=p.o;ctx.font='700 '+p.z+'px Consolas,monospace';ctx.translate(p.x%W,p.y);ctx.rotate(Math.sin(p.r)*.3);ctx.fillText(p.s,0,0);ctx.restore()});
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ===================== VIEWS ===================== */
+function show(v){
+  if(examActive)return;
+  ['rev','exh','exam'].forEach(k=>$(k).classList.toggle('hide',k!==v));
+  $('tabRev').classList.toggle('on',v==='rev');$('tabEx').classList.toggle('on',v==='exh');
+  if(v==='exh')updateCool();
+  window.scrollTo(0,0);
+}
+
+/* ===================== COOLDOWN ===================== */
+let coolT=null,leftNote=false;
+function leftMs(){const l=+ls.get('wfExamLast',0)||0;return Math.max(0,l+COOL-Date.now())}
+function updateCool(){
+  clearInterval(coolT);
+  const run=()=>{
+    const m=leftMs();const b=$('cool'),s=$('startBtn');
+    if(m>0){const mm=Math.floor(m/60000),ss=Math.floor(m/1000)%60;
+      b.classList.remove('hide');
+      b.textContent=(leftNote?'🚪 You left the exam, so it was ended. ':'')+'⏳ You can retake the exam in '+mm+':'+String(ss).padStart(2,'0');
+      s.disabled=true;}
+    else{b.classList.add('hide');s.disabled=false;clearInterval(coolT);}
+  };run();coolT=setInterval(run,1000);
+}
+
+/* ===================== EXAM ===================== */
+let examActive=false,qs=[],ans={},flags={},cur=0,endAt=0,tick=null;
+
+function startExam(){
+  if(leftMs()>0)return;
+  leftNote=false;
+  qs=shuf(Q.map((q,i)=>({i,q:q.q,c:q.c,o:shuf([q.c].concat(q.w))})));
+  ans={};flags={};cur=0;endAt=Date.now()+DUR*1000;examActive=true;
+  $('topbar').classList.add('hide');$('foot').classList.add('hide');
+  ['rev','exh'].forEach(k=>$(k).classList.add('hide'));$('exam').classList.remove('hide');
+  $('resultBox').innerHTML='';
+  ls.set('wfExamState','1');ls.set('wfExamAns',JSON.stringify({}));
+  renderQ();window.scrollTo(0,0);
+  tick=setInterval(()=>{
+    const s=Math.max(0,Math.round((endAt-Date.now())/1000));
+    $('timer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+    $('ring').classList.toggle('low',s<=300);
+    $('pr').style.strokeDashoffset=326.7*(1-s/DUR);
+    if(s<=0)finish('time');
+  },500);
+}
+function renderQ(){
+  const q=qs[cur],n=Object.keys(ans).length;
+  $('qcount').textContent='Question '+(cur+1)+' of '+qs.length+' · '+n+' answered';
+  $('abar').style.width=(n/qs.length*100)+'%';
+  $('qbox').style.animation='none';void $('qbox').offsetWidth;$('qbox').style.animation='';
+  $('qbox').innerHTML='<div class="qhead"><span class="qtag">Item '+(cur+1)+'</span><button class="btn sm ghost flag '+(flags[q.i]?'on':'')+'" onclick="flag()">⚑ '+(flags[q.i]?'Flagged':'Flag')+'</button></div>'
+   +'<p class="qtext">'+esc(q.q)+'</p>'
+   +'<div class="opts">'+q.o.map((o,k)=>'<button class="opt '+(ans[q.i]===o?'sel':'')+'" onclick="pick('+k+')">'+esc(o)+'</button>').join('')+'</div>';
+  $('qnav').innerHTML=qs.map((x,k)=>'<button class="'+(ans[x.i]!==undefined?'done ':'')+(flags[x.i]?'fl ':'')+(k===cur?'cur':'')+'" onclick="cur='+k+';renderQ()">'+(k+1)+'</button>').join('');
+}
+function pick(k){const q=qs[cur];ans[q.i]=q.o[k];ls.set('wfExamAns',JSON.stringify(ans));renderQ()}
+function flag(){const q=qs[cur];flags[q.i]=!flags[q.i];renderQ()}
+function go(d){cur=Math.min(qs.length-1,Math.max(0,cur+d));renderQ()}
+document.addEventListener('keydown',e=>{
+  if(!examActive||document.querySelector('.modal'))return;
+  const k=e.key.toLowerCase();
+  if(['1','2','3','4'].includes(k))pick(+k-1);
+  else if(['a','b','c','d'].includes(k))pick('abcd'.indexOf(k));
+  else if(k==='arrowright')go(1);else if(k==='arrowleft')go(-1);else if(k==='f')flag();
+});
+
+function submitExam(){
+  const un=qs.length-Object.keys(ans).length,fl=Object.values(flags).filter(Boolean).length;
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML='<div class="mbox"><h3>Submit your exam?</h3><p>'+(un?'⚠️ You still have <b>'+un+'</b> unanswered item'+(un>1?'s':'')+'. ':'All items answered. ')+(fl?fl+' flagged. ':'')+'You cannot undo this.</p><div class="row"><button class="btn ghost" id="mNo">Keep going</button><button class="btn" id="mYes">Submit now</button></div></div>';
+  document.body.appendChild(m);
+  $('mNo').onclick=()=>m.remove();
+  $('mYes').onclick=()=>{m.remove();finish('submit')};
+}
+
+function score(a){let s=0;Q.forEach((q,i)=>{if(a[i]===q.c)s++});return s}
+
+function finish(reason,savedAns){
+  if(!examActive&&!savedAns)return;
+  const a=savedAns||ans;
+  examActive=false;clearInterval(tick);
+  document.querySelectorAll('.modal').forEach(x=>x.remove());
+  ls.set('wfExamLast',Date.now());
+  ls.del('wfExamState');ls.del('wfExamAns');
+  $('exam').classList.add('hide');$('topbar').classList.remove('hide');$('foot').classList.remove('hide');
+  $('exh').classList.remove('hide');$('rev').classList.add('hide');
+  $('tabRev').classList.remove('on');$('tabEx').classList.add('on');
+
+  /* Left the exam (tab switch / reload): no result, no answers */
+  if(reason==='tab'||reason==='reload'){
+    leftNote=true;$('resultBox').innerHTML='';
+    updateCool();window.scrollTo(0,0);return;
+  }
+
+  const s=score(a),n=Object.keys(a).length,pct=Math.round(s/Q.length*100);
+  const best=+ls.get('ustBest60',-1);if(s>best){ls.set('ustBest60',s)}updStats();
+  const msg={time:'⏰ Time is up!',submit:'✅ Exam submitted'}[reason];
+  const title=pct>=90?'Outstanding! 🏆':pct>=75?'Great job! 🎉':pct>=50?'Getting there 💪':'Keep reviewing 📚';
+  $('resultBox').innerHTML='<div class="card" style="margin-top:24px">'
+   +'<div class="warnbox" style="margin-top:0">'+msg+'</div>'
+   +'<div class="res"><div class="sring"><svg viewBox="0 0 170 170"><defs><linearGradient id="gr2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset=".5" stop-color="#60a5fa"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><circle class="tr" cx="85" cy="85" r="75"/><circle class="pr" id="spr" cx="85" cy="85" r="75"/></svg><div class="mid"><div><b class="grad">'+s+'/'+Q.length+'</b><span>'+pct+'%</span></div></div></div>'
+   +'<div class="rtxt"><h3>'+title+'</h3><p class="note">Answered '+n+' of '+Q.length+' · Unanswered items count as wrong.<br>You can retake the exam after 30 minutes. Head back to the Reviewer anytime.</p>'
+   +'<button class="btn sm" onclick="show(\'rev\')">Back to Reviewer</button></div></div>'
+   +'<h3 style="margin:22px 0 0">Answer Key</h3><div class="chips" id="chips"><span class="chip on" data-f="all">All '+Q.length+'</span><span class="chip" data-f="x">Wrong ('+(Q.length-s)+')</span><span class="chip" data-f="ok">Correct ('+s+')</span></div><div id="akList"></div></div>';
+  const draw=f=>{
+    $('akList').innerHTML=Q.map((q,i)=>({q,i,ok:a[i]===q.c})).filter(o=>f==='all'||(f==='x'?!o.ok:o.ok)).map(({q,i,ok})=>
+      '<div class="ak '+(ok?'':'x')+'"><p>'+(i+1)+'. '+esc(q.q)+'</p><div class="y">Your answer: '+(a[i]!==undefined?esc(a[i]):'(none)')+' '+(ok?'✅':'❌')+'</div><div class="c">Correct: '+esc(q.c)+'</div>'+(ok?'':'<div class="rv2">Review: topic '+q.t+'. '+esc(T[q.t-1].t)+'</div>')+'</div>').join('')||'<p class="note">Nothing here.</p>';
+  };draw('all');
+  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));c.classList.add('on');draw(c.dataset.f)});
+  updateCool();window.scrollTo(0,0);
+  setTimeout(()=>{const r=$('spr');if(r)r.style.strokeDashoffset=471.2*(1-s/Q.length)},120);
+  if(pct>=75)boom();
+}
+
+/* confetti */
+function boom(){
+  const cv=$('confetti'),c=cv.getContext('2d');cv.classList.remove('hide');cv.width=innerWidth;cv.height=innerHeight;
+  const cols=['#2dd4bf','#60a5fa','#f59e0b','#34d399','#f472b6'];
+  const ps=Array.from({length:150},()=>({x:innerWidth/2,y:innerHeight/3,vx:(Math.random()-.5)*16,vy:-Math.random()*15-3,s:5+Math.random()*7,c:cols[Math.random()*5|0],r:Math.random()*6,vr:(Math.random()-.5)*.4}));
+  let f=0;(function loop(){
+    c.clearRect(0,0,cv.width,cv.height);
+    ps.forEach(p=>{p.vy+=.28;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;c.save();c.translate(p.x,p.y);c.rotate(p.r);c.fillStyle=p.c;c.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);c.restore()});
+    if(++f<190)requestAnimationFrame(loop);else{c.clearRect(0,0,cv.width,cv.height);cv.classList.add('hide')}
+  })();
+}
+
+/* Scroll progress bar */
+addEventListener('scroll',()=>{const h=document.documentElement;$('prog').style.width=(h.scrollTop/((h.scrollHeight-h.clientHeight)||1)*100)+'%'},{passive:true});
+
+/* Tab switch / leaving detection */
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&examActive)finish('tab')});
+window.addEventListener('blur',()=>{if(examActive)finish('tab')});
+window.addEventListener('pagehide',()=>{if(examActive){ls.set('wfExamLast',Date.now())}});
+
+/* If page was reloaded/closed during an exam: end it quietly */
+if(ls.get('wfExamState',null)){
+  let sa={};try{sa=JSON.parse(ls.get('wfExamAns','{}'))}catch(e){}
+  examActive=true;finish('reload',sa);
+}
+
+setTheme(ls.get('wfTheme','teal'));
+updStats();
+</script>
+</body>
+</html>
