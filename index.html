@@ -573,7 +573,6 @@ setTheme(ls.get('wfTheme','teal'));
 updStats();
 </script>
 <script type="module">
-const MATERIAL_ID="-P3ppIxt7tqyuk3mNHTH";
 const REDEEM_URL="https://bsit-study.vercel.app/api/redeemViewerTicket";
 const gate=document.getElementById("accessGate");
 const message=document.getElementById("accessMessage");
@@ -602,11 +601,6 @@ async function validateViewerTicket(){
     denyAccess("ticket or material ID is missing");
     return;
   }
-  if(materialId!==MATERIAL_ID){
-    denyAccess("ticket is for a different material");
-    return;
-  }
-
   try{
     const response=await fetch(REDEEM_URL,{
       method:"POST",
@@ -620,7 +614,7 @@ async function validateViewerTicket(){
     if(!response.ok)throw new Error(`Ticket service returned HTTP ${response.status}`);
 
     const result=await response.json();
-    if(result.valid!==true||result.materialId!==MATERIAL_ID){
+    if(result.valid!==true||result.materialId!==materialId){
       denyAccess("the server returned an invalid ticket response");
       return;
     }
